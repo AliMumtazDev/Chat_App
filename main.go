@@ -33,6 +33,10 @@ func main() {
 	if err != nil {
 		log.Panicf("Error connecting to PostgreSQL: %s", err)
 	}
+	// Run DB migrations on startup to ensure tables exist
+	if err := postgresdb.Migrate(connpostgres); err != nil {
+		log.Panicf("Error running migrations: %s", err)
+	}
 	connmongo, err := mongodb.MOngoConn()
 	if err != nil {
 		log.Panicf("Error connecting to MongoDB: %s", err)
@@ -45,7 +49,13 @@ func main() {
 
 	userService := userserviceimpl.NewUserService(messagedb)
 	go func() {
-		connection.ConnectToWebSocketServer("ws://localhost:8004/backend/ws", key)
+		wsURL := os.Getenv("WEBSOCKET_URL")
+		if wsURL == "" {
+			// Prefer Docker service name by default; override in .env for local dev
+			wsURL = "ws://websocket:8004/backend/ws"
+		}
+		log.Printf("Connecting to WebSocket at %s", wsURL)
+		connection.ConnectToWebSocketServer(wsURL, key)
 		log.Println("Connected to WebSocket server")
 	}()
 	httpRouter := routes.NewRouter(authService, userService)

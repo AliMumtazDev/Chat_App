@@ -1,8 +1,8 @@
 FROM node:18.16.0-alpine
 WORKDIR /app
-COPY package*.json ./
+COPY chat-app/package*.json ./
 RUN npm install
-COPY . .
+COPY ./chat-app .
 RUN npm run build
 EXPOSE 3000
 

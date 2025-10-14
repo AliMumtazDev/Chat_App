@@ -1,8 +1,8 @@
-FROM golang:1.16
+FROM golang:1.24.2
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod tidy
 COPY . .
-RUN go build -o websocket-server ./main.go
+RUN go build -o websocket-server web_socket_app/main.go
 EXPOSE 8004
 CMD ["./websocket-server"]
