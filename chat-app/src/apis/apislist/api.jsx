@@ -44,13 +44,3 @@ export const getUsers = (searchQuery, token) => {
     },
   });
 };
-
-// New function to fetch message history
-export const getMessageHistory = (receiver_id, token) => {
-  return axios.get(`${sendMessageApi}/history`, {
-    params: { receiver_id },
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-};

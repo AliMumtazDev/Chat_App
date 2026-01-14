@@ -1,57 +1,26 @@
 # version: "3.8"
-# services:
-#   app:
-#     build: .
-#     container_name: chat_app
-#     ports:
-#       - "8002:8002"  # Change if your app uses another port
-#     depends_on:
-#       - mongo
-#       - postgres
-#     environment:
-#       - MONGO_URI=mongodb://mongo:27017
-#       - POSTGRES_URI=postgres://postgres:postgres@postgres:5432/chatdb?sslmode=disable
-#     volumes:
-#       - .:/app
-#     restart: always
-#   mongo:
-#     image: mongo:latest
-#     container_name: chat_mongo
-#     ports:
-#       - "27017:27017"
-#     volumes:
-#       - mongo_data:/data/db
-#     restart: always
-#   postgres:
-#     image: postgres:15
-#     container_name: chat_postgres
-#     environment:
-#       POSTGRES_USER: postgres
-#       POSTGRES_PASSWORD: 123456
-#       POSTGRES_DB: gotest
-#     ports:
-#       - "5432:5432"
-#     volumes:
-#       - pgdata:/var/lib/postgresql/data
-#     restart: always
-# volumes:
-#   mongo_data:
-#   pgdata:
-
-
-version: "3.8"
 services:
   app:
-    build: .
-    container_name: chat_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chat_application
     ports:
-      - "8003:8002"
+      - "8005:8005"
     depends_on:
       - mongo
       - postgres
+      - websocket
+    env_file:
+      - .env
     environment:
-      - MONGO_URI=mongodb://mongo:27018
-      - POSTGRES_URI=postgres://postgres:postgres@postgres:5432/chatdb?sslmode=disable
+      # Override host-based envs for in-network access
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      MONGO_URI: mongodb://mongo:27017
+      WEBSOCKET_URL: ws://websocket:8004/backend/ws
+    networks:
+      - jwt-networks
     restart: always
   mongo:
     image: mongo:latest
@@ -61,6 +30,8 @@ services:
     volumes:
       - mongo_data:/data/db
     restart: always
+    networks:
+      - jwt-networks
   postgres:
     image: postgres:15
     container_name: chat_postgres
@@ -69,10 +40,49 @@ services:
       POSTGRES_PASSWORD: 1233456
       POSTGRES_DB: gotest
     ports:
-      - "5432:5432"
+      # Avoid host port conflicts (use 5433 on host)
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
+    networks:
+      - jwt-networks
+  websocket:
+    build:
+      context: .
+      dockerfile: DockerFile.websocket
+    container_name: chat_websocket
+    ports:
+      - "8004:8004"
+    depends_on:
+      - mongo
+    env_file:
+      - .env
+    environment:
+      # Inside the Docker network, use the service name for MongoDB
+      MONGO_URI: mongodb://mongo:27017
+    restart: always
+    networks:
+      - jwt-networks
+
+  frontend:
+    build:
+      context: .
+      dockerfile: chat-app/Dockerfile
+    container_name: chat_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - app
+      - websocket
+    restart: always
+    networks:    
+      - jwt-networks
+
+
 volumes:
   mongo_data:
   pgdata:
+
+networks:
+  jwt-networks:

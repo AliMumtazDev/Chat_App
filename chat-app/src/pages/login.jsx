@@ -13,6 +13,10 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Clear any existing tokens before login
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+
     const result = await handleLogin(email, password);
 
     if (result.success) {
@@ -26,25 +30,20 @@ const Login = () => {
         return;
       }
 
-      if (localStorage.getItem('token')) {
-        localStorage.removeItem('token');
-      }
+      // Store the new tokens
       localStorage.setItem('accessToken', accessToken);
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken);
       } else {
-        console.log('No refresh token received:');
+        console.log('No refresh token received');
       }
 
       toast.success(result.data.message || 'Logged in successfully!');
-      console.log('Login Success - Response:');
-      // console.log(result.data);
+      console.log('Login Success - Access Token:', accessToken);
       setEmail('');
       setPassword('');
       navigate('/chat');
     } else {
-      // const errorMessage = result.error.response?.data?.error || result.error.message ;
-      // toast.error(errorMessage);
       toast.error(result.error);
       console.error('Login Error:', result.error);
     }

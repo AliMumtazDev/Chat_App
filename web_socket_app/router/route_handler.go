@@ -6,7 +6,7 @@ import (
 
 func (r *SocketRouter) SocketRoutes() {
 	protected := r.Engine.Group("/protected")
-	protected.Use(auth.AuthMiddleware())
+	protected.Use(auth.WSMiddleware())
 	{
 		protected.GET("/ws", r.RegisterWebSocketRoute)
 	}

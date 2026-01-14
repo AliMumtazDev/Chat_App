@@ -16,10 +16,11 @@ export const handleSendMessage = async (receiverId, content, token) => {
 };
 
 let ws;
+
 export const setupWebSocket = (token, onMessageReceived) => {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    console.log('WebSocket already connected');
-    return ws;
+      console.log('WebSocket already connected');
+      return ws;
   }
 
   const wsUrl = `ws://localhost:8004/protected/ws?token=${token}`;
@@ -27,32 +28,41 @@ export const setupWebSocket = (token, onMessageReceived) => {
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
-    console.log('WebSocket connected');
-    ws.send(JSON.stringify({ action: 'ping', message: 'hello from client' }));
+      console.log('WebSocket connected');
+      ws.send(JSON.stringify({ action: 'ping', message: 'hello from client' }));
+
+      const pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ action: 'ping' }));
+          }
+      }, 30000);
+
+      // Cleanup interval on close
+      ws.onclose = () => clearInterval(pingInterval);
   };
 
   ws.onmessage = (event) => {
-    try {
-      const message = JSON.parse(event.data);
-      console.log('Received WebSocket message:', message);
-      onMessageReceived({ ...message, timestamp: new Date().toLocaleTimeString() });
-    } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
-    }
+      try {
+          const message = JSON.parse(event.data);
+          console.log('Received WebSocket message:', message);
+          onMessageReceived({ ...message, timestamp: new Date().toLocaleTimeString() });
+      } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+      }
   };
 
-  ws.onclose = () => {
-    console.log('WebSocket disconnected');
-    if (ws.readyState !== WebSocket.OPEN) {
-      setTimeout(() => {
-        console.log('Attempting to reconnect...');
-        setupWebSocket(token, onMessageReceived);
-      }, 3000);
-    }
+  ws.onclose = (event) => {
+      console.log('WebSocket disconnected:', event.code, event.reason);
+      if (ws.readyState !== WebSocket.OPEN) {
+          setTimeout(() => {
+              console.log('Attempting to reconnect...');
+              setupWebSocket(token, onMessageReceived);
+          }, 3000);
+      }
   };
 
   ws.onerror = (error) => {
-    console.error('WebSocket error:', error);
+      console.error('WebSocket error:', error);
   };
 
   return ws;

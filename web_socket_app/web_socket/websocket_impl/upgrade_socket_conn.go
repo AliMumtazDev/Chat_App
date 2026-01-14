@@ -21,57 +21,61 @@ func (w *WebSocketServiceImpl) AddConn(userID string, wsConn *websocket.Conn, c 
 	}
 	log.Println("User ID:", uid)
 	ConnLock.Lock()
-	if existingclient, ok := w.Clients[uid]; ok {
-		existingclient.Close()
+	defer ConnLock.Unlock()
+
+	if existingClient, ok := w.Clients[uid]; ok {
+		existingClient.Close()
+		delete(w.Clients, uid)
 	}
 	w.Clients[uid] = wsConn
-	ConnLock.Unlock()
-	fmt.Println("connected clients:", w.Clients)
-	fmt.Println("connected clientshghg:", wsConn)
 	log.Println("User connected:", uid)
-	defer func() {
-		ConnLock.Lock()
-		delete(w.Clients, uid)
-		ConnLock.Unlock()
-		wsConn.Close()
-		log.Println("User disconnected:", uid)
-	}()
-	// go func() {
-	for {
-		// var incoming userserviceimpl.models.ServerMesageToSocket
-		var incoming models.ServerMesageToSocket
-		err := wsConn.ReadJSON(&incoming)
-		if err != nil {
-			log.Println("Error reading JSON:", err)
-			break
-		}
-		log.Println("Received JSON from", uid, ":", incoming)
-		if incoming.Action == "send" {
-			receiverID := int(incoming.DestinationID)
-			log.Printf("Received message for reciever_id: %d", receiverID)
-			if receiverID == uid {
-				log.Println("Cannot send message to self")
-				continue
+	fmt.Println("connected clients:", w.Clients)
+
+	go func() {
+		defer func() {
+			ConnLock.Lock()
+			defer ConnLock.Unlock()
+			if w.Clients[uid] == wsConn {
+				delete(w.Clients, uid)
+				wsConn.Close()
+				log.Println("User disconnected:", uid)
 			}
-			// ConnLock.Lock()
-			// conn, ok := w.Clients[receiverID]
-			// ConnLock.Unlock()
-			if conn, ok := w.Clients[receiverID]; ok {
-				message := map[string]any{
-					"reciever_id": receiverID,
-					"content":     incoming.Content,
+		}()
+
+		for {
+			var incoming models.ServerMesageToSocket
+			err := wsConn.ReadJSON(&incoming)
+			if err != nil {
+				log.Println("Error reading JSON:", err)
+				break
+			}
+			log.Println("Received JSON from", uid, ":", incoming)
+			if incoming.Action == "send" {
+				recieverID := int(incoming.DestinationID)
+				log.Printf("Received message for receiver_id: %d", recieverID)
+				if recieverID == uid {
+					log.Println("Cannot send message to self")
+					continue
 				}
-				err := conn.WriteJSON(message)
-				if err != nil {
-					log.Println("Error writing JSON to reciever_id:", err)
+				ConnLock.Lock()
+				conn, ok := w.Clients[recieverID]
+				ConnLock.Unlock()
+				if ok {
+					message := map[string]any{
+						"receiver_id": recieverID,
+						"content":     incoming.Content,
+					}
+					err := conn.WriteJSON(message)
+					if err != nil {
+						log.Println("Error writing JSON to receiver_id:", err)
+					} else {
+						log.Println("Message sent to receiver_id:", recieverID)
+					}
 				} else {
-					log.Println("Message sent to reciever_id:", receiverID)
+					log.Println("Receiver not connected:", recieverID)
 				}
-			} else {
-				log.Println("Receiver not connected:", receiverID)
 			}
 		}
-	}
-	// }()
+	}()
 	return nil
 }
